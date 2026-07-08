@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – LeaveMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);background-attachment:fixed;}
+    .welcome-banner{background:linear-gradient(135deg,rgba(102,126,234,0.2),rgba(118,75,162,0.2));border:1px solid rgba(102,126,234,0.3);border-radius:20px;padding:28px 32px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center;animation:fadeInUp 0.5s ease;}
+    .welcome-text h2{font-size:22px;font-weight:700;}
+    .welcome-text h2 span{background:linear-gradient(90deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .welcome-text p{font-size:13px;color:rgba(255,255,255,0.5);margin-top:4px;}
+    .welcome-icon{font-size:60px;animation:float 3s ease-in-out infinite;}
+    @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+    .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:28px;}
+    .quick-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:all 0.3s;text-decoration:none;color:#fff;display:block;}
+    .quick-btn:hover{background:rgba(102,126,234,0.2);border-color:rgba(102,126,234,0.4);transform:translateY(-4px);box-shadow:0 10px 30px rgba(102,126,234,0.3);}
+    .quick-btn .icon{font-size:28px;margin-bottom:8px;}
+    .quick-btn .label{font-size:12px;font-weight:500;color:rgba(255,255,255,0.7);}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">⚡ LeaveMS</div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="avatarLetter">E</div>
+      <div class="user-info">
+        <div class="name" id="sidebarName">Employee</div>
+        <div class="role" id="sidebarRole">employee</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-section">Main</div>
+      <a href="dashboard.html" class="active"><span class="icon">🏠</span> Dashboard</a>
+      <a href="apply-leave.html"><span class="icon">📝</span> Apply Leave</a>
+      <a href="leave-history.html"><span class="icon">📋</span> My Leaves</a>
+      <a href="calendar.html"><span class="icon">📅</span> Calendar</a>
+      <div class="nav-section">Account</div>
+      <a href="#" onclick="logout()"><span class="icon">🚪</span> Logout</a>
+    </nav>
+  </div>
+
+  <div class="main-content">
+    <div id="alert" class="alert" style="display:none"></div>
+
+    <div class="welcome-banner">
+      <div class="welcome-text">
+        <h2>Welcome back, <span id="userName">User</span>! 👋</h2>
+        <p id="dateText"></p>
+      </div>
+      <div class="welcome-icon">🎯</div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <h3 style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:14px;text-transform:uppercase;letter-spacing:1px;">Leave Balance</h3>
+    <div id="balanceGrid" class="balance-grid"></div>
+
+    <div class="quick-actions">
+      <a href="apply-leave.html" class="quick-btn"><div class="icon">✍️</div><div class="label">Apply Leave</div></a>
+      <a href="leave-history.html" class="quick-btn"><div class="icon">📊</div><div class="label">My History</div></a>
+      <a href="calendar.html" class="quick-btn"><div class="icon">🗓️</div><div class="label">Calendar</div></a>
+      <a href="#" class="quick-btn" onclick="logout()"><div class="icon">🚪</div><div class="label">Logout</div></a>
+    </div>
+
+    <div class="card">
+      <h2>📋 Recent Leave Requests</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Comment</th></tr></thead>
+          <tbody id="leaveTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = checkAuth();
+      if(!user) return;
+      document.getElementById('userName').textContent = user.name.split(' ')[0];
+      document.getElementById('sidebarName').textContent = user.name;
+      document.getElementById('sidebarRole').textContent = user.role;
+      document.getElementById('avatarLetter').textContent = user.name.charAt(0).toUpperCase();
+      document.getElementById('dateText').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+      try {
+        const [balances, leaves] = await Promise.all([api.get('/leave/balance'), api.get('/leave/my-leaves')]);
+        const pending = leaves.filter(l=>l.status==='pending').length;
+        const approved = leaves.filter(l=>l.status==='approved').length;
+        const totalDays = leaves.filter(l=>l.status==='approved').reduce((s,l)=>s+l.days,0);
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number">${pending}</div><div class="stat-label">Pending Requests</div></div>
+          <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-number">${approved}</div><div class="stat-label">Approved Leaves</div></div>
+          <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-number">${totalDays}</div><div class="stat-label">Days Taken</div></div>
+          <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-number">${leaves.length}</div><div class="stat-label">Total Requests</div></div>`;
+        document.getElementById('balanceGrid').innerHTML = balances.map(b=>`
+          <div class="balance-card">
+            <div class="days">${b.remaining_days}</div>
+            <div class="type">${b.leave_type_name}</div>
+            <div class="used">Used: ${b.used_days} / ${b.total_days}</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${(b.used_days/b.total_days*100)||0}%"></div></div>
+          </div>`).join('') || '<p style="color:rgba(255,255,255,0.4)">No balance data</p>';
+        document.getElementById('leaveTable').innerHTML = leaves.slice(0,8).map(l=>`
+          <tr><td>${l.leave_type_name}</td><td>${formatDate(l.start_date)}</td><td>${formatDate(l.end_date)}</td><td>${l.days}</td><td>${statusBadge(l.status)}</td><td>${l.manager_comment||'–'}</td></tr>`).join('') ||
+          '<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><p>No leave requests yet</p></div></td></tr>';
+      } catch(err) { showAlert(err.message,'error'); }
+    });
+  </script>
+</body>
+</html>

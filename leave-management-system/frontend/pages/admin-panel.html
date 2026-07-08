@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel – LeaveMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);background-attachment:fixed;}</style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">⚡ LeaveMS Admin</div>
+    <div class="sidebar-user"><div class="user-avatar" id="avatarLetter">A</div><div class="user-info"><div class="name" id="sidebarName">Admin</div><div class="role">admin</div></div></div>
+    <nav>
+      <div class="nav-section">Admin</div>
+      <a href="admin-panel.html" class="active"><span class="icon">⚙️</span> Admin Panel</a>
+      <a href="manager-view.html"><span class="icon">⏳</span> Leave Requests</a>
+      <a href="calendar.html"><span class="icon">📅</span> Calendar</a>
+      <div class="nav-section">Account</div>
+      <a href="#" onclick="logout()"><span class="icon">🚪</span> Logout</a>
+    </nav>
+  </div>
+  <div class="main-content">
+    <div class="topbar"><div><div class="page-title">Admin Panel</div><div class="page-subtitle">Manage users, leave types and reports</div></div></div>
+    <div id="alert" class="alert"></div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('users')">👥 Users</button>
+      <button class="tab-btn" onclick="switchTab('leaveTypes')">📋 Leave Types</button>
+      <button class="tab-btn" onclick="switchTab('report')">📊 Report</button>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="tab-users" class="tab-content active">
+      <div class="card">
+        <h2>➕ Add New User</h2>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+          <div class="form-group"><label>Full Name</label><input id="newName" placeholder="John Doe"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="newEmail" placeholder="john@company.com"></div>
+          <div class="form-group"><label>Password</label><input type="password" id="newPassword" placeholder="Min 6 chars"></div>
+          <div class="form-group"><label>Department</label><input id="newDept" placeholder="Engineering"></div>
+          <div class="form-group"><label>Role</label><select id="newRole"><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div>
+          <div class="form-group" style="align-self:end"><button class="btn btn-primary" style="width:100%" onclick="createUser()">➕ Add User</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>👥 All Users</h2>
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Joined</th><th>Action</th></tr></thead>
+          <tbody id="usersTable"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- LEAVE TYPES TAB -->
+    <div id="tab-leaveTypes" class="tab-content">
+      <div class="card">
+        <h2>➕ Add Leave Type</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:14px;align-items:end;">
+          <div class="form-group"><label>Name</label><input id="ltName" placeholder="Annual Leave"></div>
+          <div class="form-group"><label>Max Days</label><input type="number" id="ltDays" placeholder="20"></div>
+          <div class="form-group"><label>Description</label><input id="ltDesc" placeholder="Description..."></div>
+          <button class="btn btn-primary" onclick="createLeaveType()">➕ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Leave Types</h2>
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Name</th><th>Max Days</th><th>Description</th><th>Action</th></tr></thead>
+          <tbody id="leaveTypesTable"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- REPORT TAB -->
+    <div id="tab-report" class="tab-content">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h2>📊 Leave Report</h2>
+          <button class="btn btn-primary btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <select id="filterStatus" onchange="filterReport()" style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-family:'Poppins',sans-serif;outline:none;">
+            <option value="">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Employee</th><th>Dept</th><th>Type</th><th>Duration</th><th>Days</th><th>Status</th><th>Applied On</th></tr></thead>
+          <tbody id="reportTable"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script><script src="../js/auth.js"></script>
+  <script>
+    let allReport = [];
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = checkAuth();
+      if(!user||user.role!=='admin'){window.location.href='/pages/login.html';return;}
+      document.getElementById('sidebarName').textContent = user.name;
+      document.getElementById('avatarLetter').textContent = user.name.charAt(0).toUpperCase();
+      loadAll();
+    });
+    const loadAll = async () => { loadUsers(); loadLeaveTypes(); loadReport(); loadStats(); };
+    const loadStats = async () => {
+      try {
+        const [users, leaves] = await Promise.all([api.get('/admin/users'), api.get('/admin/report')]);
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-number">${users.length}</div><div class="stat-label">Total Users</div></div>
+          <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number">${leaves.filter(l=>l.status==='pending').length}</div><div class="stat-label">Pending</div></div>
+          <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-number">${leaves.filter(l=>l.status==='approved').length}</div><div class="stat-label">Approved</div></div>
+          <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-number">${leaves.length}</div><div class="stat-label">Total Requests</div></div>`;
+      } catch(err){}
+    };
+    const loadUsers = async () => {
+      try {
+        const users = await api.get('/admin/users');
+        document.getElementById('usersTable').innerHTML = users.map(u=>`
+          <tr><td><strong>${u.name}</strong></td><td>${u.email}</td>
+          <td><span class="badge badge-${u.role==='admin'?'rejected':u.role==='manager'?'pending':'approved'}">${u.role}</span></td>
+          <td>${u.department||'–'}</td><td>${formatDate(u.created_at)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">🗑️ Delete</button></td></tr>`).join('');
+      } catch(err){showAlert(err.message,'error');}
+    };
+    const loadLeaveTypes = async () => {
+      try {
+        const types = await api.get('/admin/leave-types');
+        document.getElementById('leaveTypesTable').innerHTML = types.map(t=>`
+          <tr><td><strong>${t.name}</strong></td><td>${t.max_days} days</td><td>${t.description||'–'}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteLeaveType(${t.id})">🗑️ Delete</button></td></tr>`).join('');
+      } catch(err){}
+    };
+    const loadReport = async () => {
+      try {
+        allReport = await api.get('/admin/report');
+        renderReport(allReport);
+      } catch(err){}
+    };
+    const renderReport = (data) => {
+      document.getElementById('reportTable').innerHTML = data.map(l=>`
+        <tr><td>${l.employee_name}</td><td>${l.department||'–'}</td><td>${l.leave_type_name}</td>
+        <td>${formatDate(l.start_date)} – ${formatDate(l.end_date)}</td><td>${l.days}</td>
+        <td>${statusBadge(l.status)}</td><td>${formatDate(l.created_at)}</td></tr>`).join('') ||
+        '<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>No data</p></div></td></tr>';
+    };
+    const filterReport = () => {
+      const s = document.getElementById('filterStatus').value;
+      renderReport(s ? allReport.filter(l=>l.status===s) : allReport);
+    };
+    const exportCSV = () => {
+      const rows = [['Employee','Department','Leave Type','Start','End','Days','Status'],...allReport.map(l=>[l.employee_name,l.department,l.leave_type_name,l.start_date,l.end_date,l.days,l.status])];
+      const csv = rows.map(r=>r.join(',')).join('\n');
+      const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download='leave-report.csv'; a.click();
+    };
+    const createUser = async () => {
+      const body={name:document.getElementById('newName').value,email:document.getElementById('newEmail').value,password:document.getElementById('newPassword').value,role:document.getElementById('newRole').value,department:document.getElementById('newDept').value};
+      if(!body.name||!body.email||!body.password) return showAlert('Please fill all required fields','error');
+      try { await api.post('/admin/users',body); showAlert('✅ User created successfully','success'); loadUsers(); loadStats(); ['newName','newEmail','newPassword','newDept'].forEach(id=>document.getElementById(id).value=''); }
+      catch(err){showAlert(err.message,'error');}
+    };
+    const createLeaveType = async () => {
+      const body={name:document.getElementById('ltName').value,maxDays:document.getElementById('ltDays').value,description:document.getElementById('ltDesc').value};
+      if(!body.name||!body.maxDays) return showAlert('Please fill name and days','error');
+      try { await api.post('/admin/leave-types',body); showAlert('✅ Leave type added','success'); loadLeaveTypes(); ['ltName','ltDays','ltDesc'].forEach(id=>document.getElementById(id).value=''); }
+      catch(err){showAlert(err.message,'error');}
+    };
+    const deleteUser = async (id) => {
+      if(!confirm('Delete this user? This cannot be undone.')) return;
+      try { await api.delete(`/admin/users/${id}`); showAlert('User deleted','success'); loadUsers(); loadStats(); } catch(err){showAlert(err.message,'error');}
+    };
+    const deleteLeaveType = async (id) => {
+      if(!confirm('Delete this leave type?')) return;
+      try { await api.delete(`/admin/leave-types/${id}`); showAlert('Leave type deleted','success'); loadLeaveTypes(); } catch(err){showAlert(err.message,'error');}
+    };
+    const switchTab = (name) => {
+      document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.getElementById('tab-'+name).classList.add('active');
+      event.target.classList.add('active');
+    };
+  </script>
+</body>
+</html>

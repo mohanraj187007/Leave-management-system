@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Leaves – LeaveMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);background-attachment:fixed;}
+  .filter-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+  .filter-bar select,.filter-bar input{padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-family:'Poppins',sans-serif;font-size:13px;outline:none;}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">⚡ LeaveMS</div>
+    <div class="sidebar-user"><div class="user-avatar" id="avatarLetter">E</div><div class="user-info"><div class="name" id="sidebarName">User</div><div class="role" id="sidebarRole">employee</div></div></div>
+    <nav>
+      <div class="nav-section">Main</div>
+      <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+      <a href="apply-leave.html"><span class="icon">📝</span> Apply Leave</a>
+      <a href="leave-history.html" class="active"><span class="icon">📋</span> My Leaves</a>
+      <a href="calendar.html"><span class="icon">📅</span> Calendar</a>
+      <div class="nav-section">Account</div>
+      <a href="#" onclick="logout()"><span class="icon">🚪</span> Logout</a>
+    </nav>
+  </div>
+  <div class="main-content">
+    <div class="topbar"><div><div class="page-title">My Leave History</div><div class="page-subtitle">Track all your leave requests</div></div></div>
+    <div id="alert" class="alert"></div>
+    <div class="filter-bar">
+      <select id="filterStatus" onchange="filterLeaves()"><option value="">All Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+    </div>
+    <div class="card">
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Leave Type</th><th>Duration</th><th>Days</th><th>Reason</th><th>Status</th><th>Manager Comment</th><th>Action</th></tr></thead>
+          <tbody id="historyTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="../js/api.js"></script><script src="../js/auth.js"></script>
+  <script>
+    let allLeaves = [];
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = checkAuth(); if(!user) return;
+      document.getElementById('sidebarName').textContent = user.name;
+      document.getElementById('sidebarRole').textContent = user.role;
+      document.getElementById('avatarLetter').textContent = user.name.charAt(0).toUpperCase();
+      try { allLeaves = await api.get('/leave/my-leaves'); renderTable(allLeaves); } catch(err){showAlert(err.message,'error');}
+    });
+    const renderTable = (leaves) => {
+      document.getElementById('historyTable').innerHTML = leaves.map(l=>`
+        <tr>
+          <td>${l.leave_type_name}</td>
+          <td>${formatDate(l.start_date)} – ${formatDate(l.end_date)}</td>
+          <td><strong>${l.days}</strong></td>
+          <td>${l.reason||'–'}</td>
+          <td>${statusBadge(l.status)}</td>
+          <td>${l.manager_comment||'–'}</td>
+          <td>${l.status==='pending'?`<button class="btn btn-danger btn-sm" onclick="cancelLeave(${l.id})">❌ Cancel</button>`:'–'}</td>
+        </tr>`).join('') || '<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>No leave requests found</p></div></td></tr>';
+    };
+    const filterLeaves = () => {
+      const status = document.getElementById('filterStatus').value;
+      renderTable(status ? allLeaves.filter(l=>l.status===status) : allLeaves);
+    };
+    const cancelLeave = async (id) => {
+      if(!confirm('Cancel this leave request?')) return;
+      try { await api.delete(`/leave/cancel/${id}`); showAlert('Leave cancelled','success'); allLeaves = await api.get('/leave/my-leaves'); renderTable(allLeaves); } catch(err){showAlert(err.message,'error');}
+    };
+  </script>
+</body>
+</html>

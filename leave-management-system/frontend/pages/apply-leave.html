@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apply Leave – LeaveMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);background-attachment:fixed;}
+  .days-preview{background:rgba(102,126,234,0.15);border:1px solid rgba(102,126,234,0.3);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;display:none;}
+  .days-preview .count{font-size:36px;font-weight:700;background:linear-gradient(90deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .days-preview .label{font-size:13px;color:rgba(255,255,255,0.5);}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">⚡ LeaveMS</div>
+    <div class="sidebar-user"><div class="user-avatar" id="avatarLetter">E</div><div class="user-info"><div class="name" id="sidebarName">User</div><div class="role" id="sidebarRole">employee</div></div></div>
+    <nav>
+      <div class="nav-section">Main</div>
+      <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+      <a href="apply-leave.html" class="active"><span class="icon">📝</span> Apply Leave</a>
+      <a href="leave-history.html"><span class="icon">📋</span> My Leaves</a>
+      <a href="calendar.html"><span class="icon">📅</span> Calendar</a>
+      <div class="nav-section">Account</div>
+      <a href="#" onclick="logout()"><span class="icon">🚪</span> Logout</a>
+    </nav>
+  </div>
+  <div class="main-content">
+    <div class="topbar"><div><div class="page-title">Apply for Leave</div><div class="page-subtitle">Submit a new leave request</div></div></div>
+    <div id="alert" class="alert"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div class="card">
+        <h2>📝 Leave Request Form</h2>
+        <div class="form-group"><label>Leave Type</label><select id="leaveType"></select></div>
+        <div class="form-row">
+          <div class="form-group"><label>Start Date</label><input type="date" id="startDate" onchange="calcDays()"></div>
+          <div class="form-group"><label>End Date</label><input type="date" id="endDate" onchange="calcDays()"></div>
+        </div>
+        <div class="days-preview" id="daysPreview"><div class="count" id="daysCount">0</div><div class="label">Working Days</div></div>
+        <div class="form-group"><label>Reason (Optional)</label><textarea id="reason" rows="4" placeholder="Brief description of your leave reason..."></textarea></div>
+        <button class="btn btn-primary" onclick="applyLeave()">📤 Submit Leave Request</button>
+      </div>
+      <div>
+        <div class="card">
+          <h2>💰 Your Leave Balance</h2>
+          <div id="balanceList"></div>
+        </div>
+        <div class="card">
+          <h2>📌 Leave Policy</h2>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.8;">
+            <p>✅ Apply at least 2 days in advance</p>
+            <p>✅ Manager approval required</p>
+            <p>✅ Emergency leaves can be applied same day</p>
+            <p>⚠️ Unused leaves may not carry forward</p>
+            <p>⚠️ Max 5 consecutive days without HOD approval</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/api.js"></script><script src="../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = checkAuth(); if(!user) return;
+      document.getElementById('sidebarName').textContent = user.name;
+      document.getElementById('sidebarRole').textContent = user.role;
+      document.getElementById('avatarLetter').textContent = user.name.charAt(0).toUpperCase();
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('startDate').min = today;
+      document.getElementById('endDate').min = today;
+      try {
+        const [types, balances] = await Promise.all([api.get('/leave/types'), api.get('/leave/balance')]);
+        document.getElementById('leaveType').innerHTML = types.map(t=>`<option value="${t.id}">${t.name} (max ${t.max_days} days)</option>`).join('');
+        document.getElementById('balanceList').innerHTML = balances.map(b=>`
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+              <span>${b.leave_type_name}</span><span style="color:#667eea;font-weight:600;">${b.remaining_days} days left</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${100-(b.used_days/b.total_days*100)||100}%"></div></div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;">Used ${b.used_days} of ${b.total_days}</div>
+          </div>`).join('') || '<p style="color:rgba(255,255,255,0.4);font-size:13px">No balance data</p>';
+      } catch(err) { showAlert(err.message,'error'); }
+    });
+    const calcDays = () => {
+      const s = document.getElementById('startDate').value, e = document.getElementById('endDate').value;
+      if(s && e) {
+        const days = Math.ceil((new Date(e)-new Date(s))/(1000*60*60*24))+1;
+        if(days>0){document.getElementById('daysCount').textContent=days;document.getElementById('daysPreview').style.display='block';}
+      }
+    };
+    const applyLeave = async () => {
+      const leaveTypeId=document.getElementById('leaveType').value, startDate=document.getElementById('startDate').value, endDate=document.getElementById('endDate').value, reason=document.getElementById('reason').value;
+      if(!startDate||!endDate) return showAlert('Please select start and end dates','error');
+      if(new Date(endDate)<new Date(startDate)) return showAlert('End date cannot be before start date','error');
+      try {
+        await api.post('/leave/apply',{leaveTypeId,startDate,endDate,reason});
+        showAlert('✅ Leave request submitted successfully!','success');
+        document.getElementById('startDate').value=''; document.getElementById('endDate').value=''; document.getElementById('reason').value='';
+        document.getElementById('daysPreview').style.display='none';
+      } catch(err){showAlert(err.message,'error');}
+    };
+  </script>
+</body>
+</html>
