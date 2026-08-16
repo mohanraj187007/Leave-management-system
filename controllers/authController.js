@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
+const LeaveType = require('../models/leaveTypeModel');
+const Balance = require('../models/balanceModel');
 require('dotenv').config({ path: './config/.env' });
 
 const register = async (req, res) => {
@@ -11,6 +13,13 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = await User.create(name, email, hashedPassword, role || 'employee', department);
+
+    const types = await LeaveType.getAll();
+    const year = new Date().getFullYear();
+    for (const t of types) {
+      await Balance.initForUser(userId, t.id, t.max_days, year);
+    }
+
     res.status(201).json({ message: 'User registered successfully', userId });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -20,13 +29,10 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('LOGIN ATTEMPT:', email, password);
     const user = await User.findByEmail(email);
-    console.log('USER FOUND:', user ? user.email : 'none');
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log('PASSWORD MATCH:', isMatch);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
     const token = jwt.sign(
@@ -36,7 +42,6 @@ const login = async (req, res) => {
     );
     res.json({ token, user: { id: user.id, name: user.name, role: user.role, department: user.department } });
   } catch (err) {
-    console.log('LOGIN ERROR:', err.message);
     res.status(500).json({ message: err.message });
   }
 };
