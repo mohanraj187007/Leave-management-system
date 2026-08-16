@@ -1,9 +1,9 @@
 /* Hamburger button - hidden on desktop, shown on mobile */
-mobile-toggle {
+.mobile-toggle {
   display: none;
   position: fixed;
   top: 16px;
-  left: 16px;
+  right: 16px;
   z-index: 1001;
   width: 44px;
   height: 44px;
