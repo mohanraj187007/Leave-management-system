@@ -1,5 +1,5 @@
 /* Hamburger button - hidden on desktop, shown on mobile */
-.mobile-toggle {
+mobile-toggle {
   display: none;
   position: fixed;
   top: 16px;
