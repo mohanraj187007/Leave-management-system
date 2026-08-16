@@ -1,4 +1,5 @@
-INSERT INTO leave_types (name, max_days, description) VALUES
+const fs = require('fs');
+const content = `INSERT INTO leave_types (name, max_days, description) VALUES
 ('Annual Leave', 20, 'Yearly paid leave'),
 ('Sick Leave', 10, 'Medical and health related leave'),
 ('Casual Leave', 5, 'Short notice personal leave'),
@@ -21,3 +22,6 @@ INSERT INTO holidays (name, date) VALUES
 ('Independence Day', '2024-08-15'),
 ('Gandhi Jayanti', '2024-10-02'),
 ('Christmas', '2024-12-25');
+`;
+fs.writeFileSync('database/seed.sql', content);
+console.log('seed.sql rewritten');

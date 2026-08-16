@@ -1,6 +1,3 @@
-CREATE DATABASE IF NOT EXISTS leave_management;
-USE leave_management;
-
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
